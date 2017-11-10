@@ -1,42 +1,29 @@
-# Zooids: Building Blocks for Swarm User Interfaces \\  Extended Material
+# Zooids: 群れになって人間の作業をお手伝いする小さなロボット
 ![Teaser](/Images/Teaser3.png)
-This paper introduces swarm user interfaces, a new class of human-computer interfaces comprised of many autonomous
-robots that handle both display and interaction. We describe the design of Zooids, an open-source open-hardware platform
-for developing tabletop swarm interfaces. The platform consists of a collection of custom-designed wheeled micro
-robots each 2.6 cm in diameter, a radio base-station, a highspeed DLP structured light projector for optical tracking, and
-a software framework for application development and control. We illustrate the potential of tabletop swarm user interfaces
-through a set of application scenarios developed with Zooids, and discuss general design considerations unique to swarm user interfaces.
+ここではスウォームユーザインタフェースについて説明します。 これは新しいヒューマンインタフェースのかたちであり、複数の自律ロボットがディスプレイ表示や対話を手がけます。 我々がデザインしたZooidsは卓上型のスウォームユーザインタフェースのための、オープンソース・オープンハードなプラットフォームです。 そのプラットフォームは、直径2.6cmのカスタムデザインなホール付きマイクロロボット、無線のベースステーション、光学式トラッキングのためのDLPという仕組みの高速なプロジェクター、アプリケーション開発と制御のためのソフトウェアフレームワークからなっております。我々はこのZooidsの、卓上型スウォームユーザインタフェースとしての能力とそのデザインについて説明します。
 
-[Here](https://www.youtube.com/watch?v=ZVdAfDMP3m0) is a link to what *Zooids* can do.
+[ここ](https://www.youtube.com/watch?v=ZVdAfDMP3m0)にデモンストレーション動画がありますのでご覧ください。
 
-## Hardware
+## ハードウェアについて
 <p align="center">
 <img src="Images/exploded.PNG" alt="exploded" width="400">
 </p>
 
-Zooids are small custom-made robots as shown above; their dimensions are 26 mm in diameter, 21 mm in height
-and they weight about 12 g. Each robot is powered by a 100 mAh LiPo battery and uses motor driven wheels. It contains a flexible elctrode for capacitive touch sensing. It communicates with the main computer through a NRF24L01+ chip. 
+上に示すように、Zooidsは小さなカスタムメイドロボットです。直径は26mmで高さが21mm、重さが12gとなってます。各ロボットは100mAhのLiPoバッテリーにて駆動しています。また、それには静電容量式タッチセンサーとメインコンピュータのNRF24L01+が含まれています。
 
-### Tracking
-Our system uses a projector-based tracking system for robot position tracking as shown below. Using a high frame rate (3000Hz) projector (DLP LightCrafter) from Texas Instruments Inc., a sequence of gray-coded patterns are projected onto a flat surface. Then, the photodiodes on the robot independently decodes into a location within the projected area. 
-The instruction for setting up this projector-based tracking system is included in the repository. 
+### トラッキングについて
+我々のシステムでは、下に示すようなプロジェクターベースのトラッキングシステムを用いています。このプロジェクターはテキサス・インスツルメンツ株式会社のメーカーのものを用いています。この製品は、DLPライトクラフターという仕組みによって、高速に（3000Hz）グレイコードのパターンを順番に映し出すことができます。またそのとき、各ロボットに搭載されたフォトダイオードがそれぞれ独立にデコードを行い、プロジェクターで移されたエリア内の位置を認識します。このプロジェクターベースのトラッキングシステムのセットアップ方法はレポジトリの中にあります。
 
-## Software
+## ソフトウェアについて
 <p align="center">
 <img src="Images/architecture.PNG" alt="architecture" width="700">
 </p>
 
-The communication structure consists of four main layers from highest to lowest level: Application, Simulation, Server, and Hardware. 
+本システムの通信の構成は４つのレベルの層で形成されています。上から下の順で、アプリケーション、シミュレーション、サーバー、ハードウェアとなってます。
 
-At the application level, the desired positions of the robots are computed. These desired positions are transmitted to
-the simulation layer through a network socket. The application programmer can choose between two control strategies:
-Proportional-Integral-Derivative (PID) position control or Hybrid Reciprocal Velocity Obstacles (HRVO) combined
-with PID (these options are explained in the next paragraphs). Based on the chosen control strategy, the simulation layer
-computes the goal positions of the robots, either final positions for PID or intermediate points for HRVO, and sends them to
-the server. Finally, the server layer dispatches commands to the individual zooids, while at the same time monitoring their status and position.
+アプリケーションレベルでは、ロボットたちの行きたい場所を計算します。所望の場所をネットワークソケットを介してシミュレーション層に送信されます。アプリケーションプログラマは２つの制御方法を選ぶことができます。Proportional-Integral-Derivative(PID)かHybrid Reciprocal Velocity Obstacles(HRVO)とPIDとの組み合わせ、のどちらかになります(それぞれの説明は後述します)。その制御方法に基づいて、シミュレーション層ではロボットたちの目的地を計算します。PIDの場合は最終位置を、HRVOの場合は中間点を算出します。またこれらの情報をサーバーに送信します。最後にサーバー層にてコマンドを各ロボットに送信します。その間同時に、各ロボットのステータスと位置をモニタリングします。
 
-Each robot independently controls its motion through a PID controller based on the state machine shown below. Given a final goal, the robot initially turns itself in the right direction and, once aligned, accelerates to its user-defined preferred speed. When it reaches the speed, it maintains it with a PID control on the orientation to ensure its direction towards the final goal. When a new incremental goal is given, it will still move at same speed but the PID control on orientation will direct the robot towards the new intermediate goal. When the robot arrives within 5 cm of the final goal, it slows down to its minimum velocity and once within 1 cm
-of the final goal, it stops and orients itself as commanded by the application programmer. To enable smooth transitions between the incremental goal positions, robots are given their next position at 60 Hz.
+各ロボットは下にしめすような制御を独立に行います。ゴール位置を与えられ、ロボットは最初に正しい方向へ回転します。一度整列されると、ユーザが定義したスピードになるまで加速します。そのスピードに達すると、それを維持しながら最終目的位置にPID制御を行いながら向かいます。新たな中間位置が与えられてもロボットはスピードを維持したまま且つPID制御を行いながら最終目的位置に向かいます。最終目的位置5cm以内となったときスピードは半分になり、最終目的位置1cmとなったときアプリケーション層からストップコマンドが送られます。中間位置をスムースに送るために送信を60Hzの速さで行います。
 
 <p align="center">
 <img src="Images/local_control.PNG" alt="control" width="700">
